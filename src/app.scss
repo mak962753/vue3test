@@ -1,0 +1,16 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+body {
+  @apply bg-gray-100 font-sans leading-normal tracking-normal;
+}
+.lnk {
+  @apply block text-gray-500 px-1
+}
+.lnk:hover {
+  @apply text-white;
+}
+.lnk:focus {
+  @apply text-white outline-none
+}
