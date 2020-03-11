@@ -9,11 +9,17 @@
     <br />
     <br />
     <br />
+    <div>
+        <label> xMin <input type="text" :value="xMin" @change="changeXMin($event)" /></label>
+    </div>
+    <div><label> xMax <input type="text" :value="xMax" @input="changeXMax($event)" /></label></div> 
+    {{xMax}}
     <xx-chart :x-grid-interval="10"
               :y-grid-interval="10"
               :x-min="xMin"
               :x-max="xMax">
-        <xx-chart-line :points="points"></xx-chart-line>
+<!--        <xx-chart-line :points="points"></xx-chart-line>-->
+        <xx-chart-smooth-line :points="points" :dx="0.1" />
         <xx-chart-smooth-line :points="points1" />
     </xx-chart>
 </template>
@@ -37,8 +43,15 @@
             setInterval(() => {
                 i.value++;
             }, 500);
+            function changeXMin({target}: Event) {
+                xMin.value = parseInt((target as any).value) || 0;
+            }
+            function changeXMax({target}: Event) {
+                xMax.value = parseInt((target as any).value) || 100;
+            }
+
             const points = computed(() => randomLine(xMin.value, xMax.value, i.value));
-            return { points, xMin, xMax, points1};
+            return { points, xMin, xMax, points1, changeXMin, changeXMax};
         }
     })
     
