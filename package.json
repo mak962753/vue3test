@@ -5,10 +5,10 @@
   "dependencies": {
     "tailwindcss": "^1.2.0",
     "three": "^0.113.2",
-    "vue": "^3.0.0-alpha.8"
+    "vue": "^3.0.0-alpha.9"
   },
   "devDependencies": {
-    "@vue/compiler-sfc": "^3.0.0-alpha.5",
+    "@vue/compiler-sfc": "^3.0.0-alpha.9",
     "cross-env": "^5.2.0",
     "css-loader": "^3.4.0",
     "file-loader": "^5.0.2",

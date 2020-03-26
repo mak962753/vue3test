@@ -1,8 +1,8 @@
 const mix = require('laravel-mix');
 const { VueLoaderPlugin } = require('vue-loader');
 const webpack = require('webpack');
-const tailwindcss = require('tailwindcss')
-const path = require('path')
+const tailwindcss = require('tailwindcss');
+//const path = require('path')
 
 if (process.argv.includes('--hot')) {
     mix.webpackConfig( {
@@ -27,7 +27,7 @@ if (process.argv.includes('--hot')) {
             devServer: {
                 hot: true,
                 inline: true,
-                port: 9999,
+                port: 9998,
                 headers: {
                     'Access-Control-Allow-Origin': '*'
                 },
