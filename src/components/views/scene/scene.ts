@@ -14,23 +14,57 @@ interface IScene {
     scene: THREE.Scene;
     camera: THREE.Camera;
     renderer: THREE.Renderer;
-    groups: Group[];
+    groups: GroupAbstract[];
 }
 
-class Group {
+abstract class GroupAbstract {
+    abstract animate():void;
+    abstract mouseOver():void;
+    abstract mouseOut():void;
+    abstract getIntersected(raycaster: THREE.Raycaster): THREE.Object3D|null;
+}
+
+class GroupLogo extends GroupAbstract {
+    constructor(private scene: THREE.Object3D) {
+        super();
+    }
+
+    animate(): void {
+        this.scene.rotation.y -= 0.003;
+    }
+
+    getIntersected(raycaster: THREE.Raycaster): THREE.Object3D | null {
+        return null;
+    }
+
+    mouseOut(): void {
+    }
+
+    mouseOver(): void {
+    }
+}
+
+class GroupStone extends GroupAbstract {
     private readonly objects: THREE.Object3D[];
     private readonly parts: THREE.Object3D[];
     private readonly offsets: THREE.Vector3[];
+    private readonly rotationAxis: THREE.Vector3 = new THREE.Vector3();
+    private readonly rotationSpeed: number = 0; 
     private insideMaterials: THREE.MeshStandardMaterial[] = [];
+
     private cnt1: number = 0;
     private dir1: number = 0;
     private lim1: number = 30;
 
-    constructor(private scene: THREE.Object3D) {
+    constructor(private scene: THREE.Object3D, startingAngle: number) {
+        super();
+        
         this.parts = this.scene.children.filter(i => i instanceof THREE.Group);
-
+        let radius = 6.5;
         let offsets: THREE.Vector3[] = [];
         if (this.parts.length === 4) {
+            this.rotationAxis = new THREE.Vector3(-0.1,1,0.3);
+            this.rotationSpeed = 0.0085;
             offsets = [
                 new THREE.Vector3(-1, 1, -1.5),
                 new THREE.Vector3(1, 1, 1),
@@ -39,6 +73,11 @@ class Group {
             ];
         }
         if (this.parts.length === 3) {
+            radius = 3;
+            
+            this.rotationAxis = new THREE.Vector3(0,1,0);
+            this.rotationSpeed = 0.005;
+            
             offsets = [
                 new THREE.Vector3(0, 1, 0),
                 new THREE.Vector3(1, -1, 0),
@@ -46,12 +85,17 @@ class Group {
             ];
         }
         if (this.parts.length === 2) {
+            radius = 5;
+            this.rotationSpeed = 0.0075;
+            this.rotationAxis = new THREE.Vector3(0.1,1,0.3);
             offsets = [
                 new THREE.Vector3(1, -1, 0),
                 new THREE.Vector3(0, 1, 0),
             ];
         }
-        
+
+        const [x,z] = [radius * Math.cos(startingAngle), radius * Math.sin(startingAngle)];
+        this.scene.position.set(x, 1, z);
         this.offsets = offsets.map(i => i.multiplyScalar(0.15));
         
         scene.traverse(i => {
@@ -59,6 +103,7 @@ class Group {
                 const mat = i.material as THREE.MeshStandardMaterial;
                 
                 if (isInsideMat(mat.name)) {
+                    mat.roughness = 1;
                     mat.map!.repeat = new THREE.Vector2(3,3); 
                     //console.log(mat);
                     this.insideMaterials.push(mat);
@@ -76,17 +121,25 @@ class Group {
         return intersects.length > 0 ? intersects[0].object : null;
     }
     
-    expand() {
+    mouseOver() {
+        this.expand();
+    }
+    
+    mouseOut() {
+        this.collapse();
+    }
+    
+    private expand() {
         this.dir1 = 1;
     }
 
-    collapse() {
+    private collapse() {
         this.dir1 = -1;
     }
 
     animate() {
         this.scene.rotation.y+=0.01;
-        rotate(this.scene, YAxis, 0.005);
+        rotate(this.scene, this.rotationAxis, this.rotationSpeed);
         
         this.insideMaterials.forEach(m => {
             const mm = m as THREE.MeshStandardMaterial;
@@ -145,9 +198,16 @@ function init(containerId: string): IScene {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
-
-    const light = new THREE.PointLight( 0xffffff, 8, 500 );
-    light.position.set( 0, -1, 8 );
+    
+    const light0 = new THREE.AmbientLight( 0x555555, 0.1)//, 50 );
+    //light0.position.set( -10, 8, -10 );
+    scene.add( light0 );
+    const light01 = new THREE.PointLight( 0xaaaaaa, 5, 50 );
+    light01.position.set( 10, 8, -10 );
+    scene.add( light01 );
+    
+    const light = new THREE.PointLight( 0xccccaa, 20, 40 );
+    light.position.set( -10, -10, 20 );
     scene.add( light );
 
     // const light1 = new THREE.PointLight( 0xff0000, 10, 500 );
@@ -156,12 +216,12 @@ function init(containerId: string): IScene {
 
 
     //const light2 = new THREE.AmbientLight( 0xff0000, 15 );
-    const light2 = new THREE.PointLight( 0xff0000, 100 );
-    light2.position.set( -4, -7, 7 );
+    const light2 = new THREE.PointLight( 0xfe19c1, 10 );
+    light2.position.set( 5, -10, 5 );
     scene.add( light2 );
     
-    const light3 = new THREE.PointLight( 0x00ff00, 5 );
-    light3.position.set( 7, -10, 9 );
+    const light3 = new THREE.PointLight( 0x119960, 10 );
+    light3.position.set( -5, -5, 5 );
     scene.add( light3 );
     
     // scene.background = layer1;
@@ -186,7 +246,7 @@ function init(containerId: string): IScene {
         scene,
         camera,
         renderer,
-        groups: new Array<Group>(),
+        groups: new Array<GroupAbstract>(),
         isDisposed() {
             return disposed;
         },
@@ -200,13 +260,9 @@ function init(containerId: string): IScene {
         },
     };
 
-    Promise.all([
-        loadGlb('assets/scene/Stone1.glb'),
-        loadGlb('assets/scene/Stone2.glb'),
-        loadGlb('assets/scene/Stone3.glb')
-    ]).then( models => {
+    function initStones(models: GLTF[]) {
         const angle = -2 * Math.PI / models.length;
-        
+
         models.forEach((model, index) => {
             const s0 = model.scene;
             s0.name = `scene${index}`;
@@ -215,31 +271,40 @@ function init(containerId: string): IScene {
                 const mat = mesh && mesh.material instanceof THREE.MeshStandardMaterial ? (mesh.material as THREE.MeshStandardMaterial) : null;
                 if (mat && !isInsideMat(mat.name)) {
                     //console.log(mat.name)
-                    mat.roughness = 1;
+                    mat.roughness = .8;
                     //mat.metalness = 0.1;
                     //mat.flatShading = true;
                     //mat.map = layer1;
                     // mat.emissiveMap= layer1;
                 }
             });
-            const a = index * angle;
-            const radius = 5;
-            const [x,z] = [radius * Math.cos(a), radius * Math.sin(a)];
-            
-            s0.position.set(x, 0, z);
-            
+            const startingAngle = index * angle;
             scene.add( s0 );
-            const group = new Group(scene.getObjectByName(s0.name)!);
+            const group = new GroupStone(scene.getObjectByName(s0.name)!, startingAngle);
             that.groups.push(group);
         });
-        
+
         const onMouseClick = (e: MouseEvent) => { onMouse(that, e); };
         renderer.domElement.addEventListener('mousemove', onMouseClick, true);
         disposeFns.push(() => { renderer.domElement.removeEventListener('click', onMouseClick) });
-
+    }
+    
+    Promise.all([
+        Promise.all([
+            loadGlb('assets/scene/Stone1.glb'),
+            loadGlb('assets/scene/Stone2.glb'),
+            loadGlb('assets/scene/Stone3.glb')
+        ]),
+        loadGlb('assets/scene/LOGO.glb')
+    ]).then( ([models, logo]) => {
+        initStones(models);
+        
+        scene.add(logo.scene);
+        logo.scene.position.set(0, 1, 0);
+        that.groups.push(new GroupLogo(logo.scene));
     });
     
-    that.camera.position.z = 9;
+    that.camera.position.z = 11;
 
     that.renderer.setSize( window.innerWidth, window.innerHeight );
     
@@ -263,7 +328,7 @@ function init(containerId: string): IScene {
     return that;
 }
 
-function findIntersection(that: IScene, raycaster: THREE.Raycaster): [Group, THREE.Object3D] | null {
+function findIntersection(that: IScene, raycaster: THREE.Raycaster): [GroupAbstract, THREE.Object3D] | null {
     for (let i = 0; i < that.groups.length; i++) {
         const x = that.groups[i].getIntersected(raycaster);
         if (x) {
@@ -284,7 +349,7 @@ function onMouse(that: IScene, event: MouseEvent) {
     if (!group) 
         return;
     that.groups.forEach(g => {
-       g === group ? g.expand() : g.collapse() 
+       g === group ? g.mouseOver() : g.mouseOut() 
     });
 }
 
