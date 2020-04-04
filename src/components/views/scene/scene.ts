@@ -15,7 +15,6 @@ interface IScene {
     camera: THREE.Camera;
     renderer: THREE.Renderer;
     groups: GroupAbstract[];
-
 }
 
 abstract class GroupAbstract {
@@ -50,7 +49,7 @@ class GroupStone extends GroupAbstract {
     private readonly parts: THREE.Object3D[];
     private readonly offsets: THREE.Vector3[];
     private readonly rotationAxis: THREE.Vector3 = new THREE.Vector3();
-    private readonly rotationSpeed: number = 0; 
+    private readonly rotationSpeed: number = 0;
     private insideMaterials: THREE.MeshStandardMaterial[] = [];
 
     private cnt1: number = 0;
@@ -59,7 +58,7 @@ class GroupStone extends GroupAbstract {
 
     constructor(private scene: THREE.Object3D, startingAngle: number) {
         super();
-        
+
         this.parts = this.scene.children.filter(i => i instanceof THREE.Group);
         let radius = 6.5;
         let offsets: THREE.Vector3[] = [];
@@ -75,10 +74,10 @@ class GroupStone extends GroupAbstract {
         }
         if (this.parts.length === 3) {
             radius = 3;
-            
+
             this.rotationAxis = new THREE.Vector3(0,1,0);
             this.rotationSpeed = 0.005;
-            
+
             offsets = [
                 new THREE.Vector3(0, 1, 0),
                 new THREE.Vector3(1, -1, 0),
@@ -105,7 +104,7 @@ class GroupStone extends GroupAbstract {
                 
                 if (isInsideMat(mat.name)) {
                     mat.roughness = 1;
-                    mat.map!.repeat = new THREE.Vector2(3,3); 
+                    mat.map!.repeat = new THREE.Vector2(3,3);
                     //console.log(mat);
                     this.insideMaterials.push(mat);
                 }
@@ -125,11 +124,11 @@ class GroupStone extends GroupAbstract {
     mouseOver() {
         this.expand();
     }
-    
+
     mouseOut() {
         this.collapse();
     }
-    
+
     private expand() {
         this.dir1 = 1;
     }
@@ -199,14 +198,14 @@ function init(containerId: string): IScene {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
-    
+
     const light0 = new THREE.AmbientLight( 0x555555, 0.1)//, 50 );
     //light0.position.set( -10, 8, -10 );
     scene.add( light0 );
     const light01 = new THREE.PointLight( 0xaaaaaa, 5, 50 );
     light01.position.set( 10, 8, -10 );
     scene.add( light01 );
-    
+
     const light = new THREE.PointLight( 0xccccaa, 20, 40 );
     light.position.set( -10, -10, 20 );
     scene.add( light );
@@ -285,11 +284,11 @@ function init(containerId: string): IScene {
             that.groups.push(group);
         });
 
-        const onMouseClick = (e: MouseEvent) => { onInteract(that, e); };
+        const onMouseClick = (e: MouseEvent) => { onMouse(that, e); };
         renderer.domElement.addEventListener('mousemove', onMouseClick, true);
         disposeFns.push(() => { renderer.domElement.removeEventListener('click', onMouseClick) });
     }
-    
+
     Promise.all([
         Promise.all([
             loadGlb('assets/scene/Stone1.glb'),
@@ -299,7 +298,7 @@ function init(containerId: string): IScene {
         loadGlb('assets/scene/LOGO.glb')
     ]).then( ([models, logo]) => {
         initStones(models);
-        
+
         scene.add(logo.scene);
         logo.scene.position.set(0, 1, 0);
         that.groups.push(new GroupLogo(logo.scene));
@@ -339,7 +338,7 @@ function findIntersection(that: IScene, raycaster: THREE.Raycaster): [GroupAbstr
     return null;
 }
 
-function onInteract(that: IScene, event: MouseEvent) {
+function onMouse(that: IScene, event: MouseEvent) {
     const {renderer: {domElement : {clientHeight, clientWidth}}, camera} = that;
     const caster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -350,7 +349,7 @@ function onInteract(that: IScene, event: MouseEvent) {
     if (!group) 
         return;
     that.groups.forEach(g => {
-       g === group ? g.mouseOver() : g.mouseOut() 
+       g === group ? g.mouseOver() : g.mouseOut()
     });
 }
 
