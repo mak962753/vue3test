@@ -4,6 +4,7 @@ import {GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import {GroupLogo} from "./group-logo";
 import {GroupStone} from "./group-stone";
 import {isInsideMat, loadGlb} from "./utils";
+import {Commands} from "./commands";
 
 /**
  * rotate around world axis
@@ -22,6 +23,7 @@ class StoneScene implements IScene {
     private groups: Group[] = [];
     private isInteractive: boolean = true;
     private activeGroup: Group | null = null;
+    private resetTimeout: number = -1;
 
     constructor(
         private containerId: string
@@ -163,9 +165,11 @@ class StoneScene implements IScene {
 
     }
 
-    private onActivate(event: MouseEvent) {
+    private async  onActivate(event: MouseEvent) {
         if (!this.isInteractive)
             return;
+
+        clearTimeout(this.resetTimeout);
 
         const group = this.groupFromMouseEvent(event);
 
@@ -174,19 +178,57 @@ class StoneScene implements IScene {
 
         this.isInteractive = false;
 
+        let work: Promise<any> = Promise.resolve();
+
         if (this.activeGroup) {
-            this.activeGroup.runAction('deactivate');
+            const inactiveItems = this.groups.filter(i => i instanceof GroupStone && (i !== this.activeGroup && i !== group));
+
+            const jobs: Promise<any>[] = [
+                Promise.all([
+                    this.activeGroup.runAction(Commands.from_center),
+                    this.activeGroup.runAction(Commands.deactivate)
+                ]),
+                this.activeGroup.runAction(Commands.move_into_bg),
+                group.runAction(Commands.activate_from_bg),
+                group.runAction(Commands.into_center)
+            ];
+            work = Promise.all(jobs);
+
+        } else {
+            let index = -1;
+            const inactiveItems = this.groups.filter(i => i !== group);
+
+            const jobs = inactiveItems.map((i, j) => {
+                index = i === group || i instanceof GroupLogo ? index : index + 1;
+                return i.runAction(Commands.move_into_bg, index);
+            });
+            jobs.push(group.runAction(Commands.activate_from_fg));
+            jobs.push(group.runAction(Commands.into_center));
+            work = Promise.all(jobs);
         }
 
-        this.activeGroup = group;
+        await work.then(() => {
+            this.activeGroup = group;
+            this.isInteractive = true;
 
-        this.activeGroup.runAction('activate')
-            .then(() => {
-                return Promise.all(this.groups.filter(i => i != this.activeGroup).map(i => i.runAction('moveBack')));
-            })
-            .then(() => {
-                this.isInteractive = true;
-            });
+            this.resetTimeout = window.setTimeout(() => {
+                this.isInteractive = false;
+                if (!this.activeGroup)
+                    return;
+                const inactiveItems = this.groups.filter(i => i !== this.activeGroup);
+
+                const jobs = [
+                    this.activeGroup.runAction(Commands.from_center),
+                    this.activeGroup.runAction(Commands.deactivate),
+                    ...inactiveItems.map(i => i.runAction(Commands.move_from_bg))
+                ];
+
+                Promise.all(jobs).then(() => {
+                    this.activeGroup = null;
+                    this.isInteractive = true;
+                });
+            }, 5000);
+        });
     }
 }
 
@@ -208,7 +250,9 @@ function initCamera(): THREE.PerspectiveCamera  {
 }
 
 function initLogo(model: GLTF, scene: THREE.Scene): Group {
-    scene.add(model.scene);
+    const pivot = new THREE.Object3D();
+    pivot.add(model.scene);
+    scene.add(pivot);
     model.scene.position.set(0, 1, 0);
     return new GroupLogo(model.scene);
 }
@@ -227,11 +271,12 @@ function initStones(models: GLTF[], scene: THREE.Scene, containerId: string, cam
             }
         });
         const startingAngle = index * angle;
-        // const pivot = new THREE.Object3D();
-        // pivot.add(s0)
-        // scene.add( pivot );
-        scene.add( s0 );
-        return (new GroupStone(scene.getObjectByName(s0.name)!, startingAngle, containerId, cam)) as Group;
+        const pivot = new THREE.Object3D();
+        pivot.position.set(0,0,0);
+        pivot.rotation.set(0,0,0);
+        pivot.add(s0);
+        scene.add( pivot );
+        return (new GroupStone(s0, startingAngle, containerId, cam)) as Group;
     });
 }
 

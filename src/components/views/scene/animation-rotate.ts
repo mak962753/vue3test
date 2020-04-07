@@ -7,16 +7,19 @@ const PI2 = 2 * Math.PI;
 // const PI_2 = Math.PI / 2;
 
 class AnimationRotate implements IAnimation {
-    private modeFn: (() => void) = () => {};
+    private modeFn: (() => void) | null = null;
 
     constructor(private angle: number,
                 private rotationSpeed: number,
                 private rotationAxis: THREE.Vector3,
                 private scene: THREE.Object3D) {
 
-        //scene.parent!.rotation.y = this.angle;
+        this.currentAngle = this.angle;
+        const {x,z} = rotationAxis;
+        this.scene.parent!.rotation.x = x;
+        this.scene.parent!.rotation.z = z;
 
-        rotate(this.scene, this.rotationAxis, this.angle);
+        //rotate(this.scene, this.rotationAxis, this.angle);
         this.setModeDefault();
     }
 
@@ -58,9 +61,9 @@ class AnimationRotate implements IAnimation {
     }
 
     setModeRotateTo(to: number, local: THREE.Vector3): Promise<any> {
-        this.angle = normAngle(this.angle);
+        // this.angle = normAngle(this.angle);
 
-        const offs = offsetToAngle(this.angle, to);
+        const offs = offsetToAngle(this.currentAngle, to);
         const yOffs = offsetToAngle(this.scene.rotation.y, local.y);
         let counter = 20;
         const rotSpeed = offs / counter;
@@ -70,13 +73,13 @@ class AnimationRotate implements IAnimation {
             this.modeFn = () => {
 
                 if (counter <= 0) {
-                    this.modeFn = () => {
-                    };
+                    this.modeFn = null;
                     y();
                     return;
                 }
-                this.angle = normAngle(this.angle + rotSpeed);
-                rotate(this.scene, this.rotationAxis, rotSpeed);
+                // this.angle = normAngle(this.angle + rotSpeed);
+                // rotate(this.scene, this.rotationAxis, rotSpeed);
+                this.currentAngle = this.currentAngle + rotSpeed;
                 this.scene.rotation.y = normAngle(this.scene.rotation.y + yRotSpeed);
 
                 counter--;
@@ -85,15 +88,18 @@ class AnimationRotate implements IAnimation {
     }
 
     animate(): void {
-        this.modeFn();
+        if (this.modeFn)
+            this.modeFn();
     }
 
     animateDefault(): void {
-        this.angle = normAngle(this.angle + this.rotationSpeed);
-        rotate(this.scene, this.rotationAxis, this.rotationSpeed);
-        this.scene.rotation.y = normAngle(this.scene.rotation.y + this.rotationSpeed);
-        //this.scene.parent!.rotation.y += this.rotationSpeed;
+        // this.angle = normAngle(this.angle + this.rotationSpeed);
+        // rotate(this.scene, this.rotationAxis, this.rotationSpeed);
+        // this.scene.rotation.y = normAngle(this.scene.rotation.y + this.rotationSpeed);
+        this.currentAngle = this.currentAngle + this.rotationSpeed;
     }
+    private get currentAngle(): number { return this.scene.parent!.rotation.y; }
+    private set currentAngle(v:number) { this.scene.parent!.rotation.y = normAngle(v); }
 }
 
 
@@ -108,6 +114,9 @@ function normAngle(angle: number):number {
         return angle > PI2 ? angle - PI2 : angle;
     return angle < -PI2 ? angle+PI2 : angle;
 }
+
+
+
 export {
     AnimationRotate
 }

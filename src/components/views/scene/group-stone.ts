@@ -1,8 +1,9 @@
 import {Group} from "./group";
 import * as THREE from "three";
-import {IAnimation} from "./animation";
+import {Commands} from "./commands";
 import {AnimationCollapseExpand} from "./animation-collapse-expand";
 import {AnimationRotate} from "./animation-rotate";
+import {AnimationTranslate} from "./animation-translate";
 import {isInsideMat} from "./utils";
 
 interface StoneGroupParams {
@@ -11,7 +12,8 @@ interface StoneGroupParams {
     rotationSpeed: number;
     rotationRadius: number;
     centerLocalRotationAngles: THREE.Vector3,
-    centerGlobalRotationAngle: number
+    centerGlobalRotationAngle: number,
+    centerOffsets: THREE.Vector3
 }
 
 const Stone2Params: StoneGroupParams = {
@@ -19,11 +21,12 @@ const Stone2Params: StoneGroupParams = {
         new THREE.Vector3(1, -1, 0),
         new THREE.Vector3(0, 1, 0)
     ],
-    rotationAxis: new THREE.Vector3(0.1, 1, 0.3),
+    rotationAxis: new THREE.Vector3(0.2, 0, 0), //new THREE.Vector3(0.1, 1, 0.3)
     rotationSpeed: 0.0075,
     rotationRadius: 5,
-    centerLocalRotationAngles: new THREE.Vector3(0, Math.PI, 0),
-    centerGlobalRotationAngle: Math.PI + Math.PI/2
+    centerLocalRotationAngles: new THREE.Vector3(0, Math.PI/4, 0),
+    centerGlobalRotationAngle: Math.PI + Math.PI/2,
+    centerOffsets: new THREE.Vector3(0,0.5,0)
 };
 
 const Stone3Params: StoneGroupParams = {
@@ -35,8 +38,10 @@ const Stone3Params: StoneGroupParams = {
     rotationAxis: new THREE.Vector3(0, 1, 0),
     rotationSpeed: 0.005,
     rotationRadius: 3,
-    centerLocalRotationAngles: new THREE.Vector3(0, Math.PI, 0),
-    centerGlobalRotationAngle: Math.PI + Math.PI/2
+    centerLocalRotationAngles: new THREE.Vector3(0, Math.PI/2, 0),
+    centerGlobalRotationAngle: Math.PI + Math.PI/2,
+    centerOffsets: new THREE.Vector3(0,-1, 3)
+
 };
 
 const Stone4Params: StoneGroupParams = {
@@ -46,11 +51,13 @@ const Stone4Params: StoneGroupParams = {
         new THREE.Vector3(-1, -0.5, -1.5),
         new THREE.Vector3(1, -1, 1)
     ],
-    rotationAxis: new THREE.Vector3(-0.1, 1, 0.3),
+    rotationAxis: new THREE.Vector3(0.7, 0, 0.3),
     rotationSpeed: 0.0085,
     rotationRadius: 6.5,
-    centerLocalRotationAngles: new THREE.Vector3(0, Math.PI / 2, 0),
-    centerGlobalRotationAngle: Math.PI + Math.PI/2
+    centerLocalRotationAngles: new THREE.Vector3(0,  3.1415+ -0.5, 0),
+    centerGlobalRotationAngle: Math.PI + Math.PI/2,
+    centerOffsets: new THREE.Vector3(0, 1.5, 0)
+
 };
 function getStoneParams(objectCount: number): StoneGroupParams {
     switch (objectCount) {
@@ -67,10 +74,10 @@ export class GroupStone extends Group {
 
     private insideMaterials: THREE.MeshStandardMaterial[] = [];
 
-    private animations: IAnimation[] = [];
-
     private readonly expandAnimation: AnimationCollapseExpand;
     private readonly rotateAnimation: AnimationRotate;
+    private readonly translateAnimation: AnimationTranslate;
+
     private readonly params: StoneGroupParams;
     private domItems: HTMLElement[] = [];
 
@@ -99,11 +106,11 @@ export class GroupStone extends Group {
         const {rotationRadius: radius, offsets, rotationAxis, rotationSpeed} = this.params;
         const [x, z] = [radius * Math.cos(0), radius * Math.sin(0)];
         this.scene.position.set(x, 1, z);
+        this.scene.rotation.set(0,0,0);
 
         this.expandAnimation = new AnimationCollapseExpand(this.parts, offsets.map(i => i.multiplyScalar(0.15)));
-        this.rotateAnimation = new AnimationRotate(startingAngle, rotationSpeed, rotationAxis.normalize(), scene);
-        this.animations.push(this.rotateAnimation);
-        this.animations.push(this.expandAnimation);
+        this.rotateAnimation = new AnimationRotate(startingAngle, rotationSpeed, rotationAxis, scene);
+        this.translateAnimation = new AnimationTranslate(this.scene.parent!);
 
         this.objects = this.parts.reduce((a, i) => {
             return [...a, ...i.children];
@@ -115,16 +122,83 @@ export class GroupStone extends Group {
         return intersects.length > 0 ? intersects[0].object : null;
     }
 
-    async activate(): Promise<any> {
-        this.expandAnimation.expand();
 
-        await this.rotateAnimation.setModeRotateTo(
-            this.params.centerGlobalRotationAngle,
-            this.params.centerLocalRotationAngles);
+    async runAction(action: string, params?: any): Promise<any> {
+        switch (action) {
+            case Commands.activate_from_bg:
+                await this.rotateAnimation.setModeRotateTo(Math.PI, this.params.centerLocalRotationAngles);
+                await this.translateAnimation.moveFront();
+                await this.rotateAnimation.setModeRotateTo(this.params.centerGlobalRotationAngle, this.params.centerLocalRotationAngles);
+                this.expandAnimation.expand();
+                this.createMenuItems();
+                return;
+
+            case Commands.activate_from_fg:
+                this.expandAnimation.expand();
+                await this.rotateAnimation.setModeRotateTo(
+                    this.params.centerGlobalRotationAngle,
+                    this.params.centerLocalRotationAngles);
+                this.createMenuItems();
+                return;
+
+            case Commands.move_into_bg: {
+                const num = params ? Number(params) : 0;
+                const angle = Math.PI / 4  + (num * Math.PI / 2);
+                console.log(num, angle);
+                await this.rotateAnimation.setModeRotateTo(angle, new THREE.Vector3());
+                await this.translateAnimation.moveBack();
+                this.rotateAnimation.setModeDefault();
+
+                return;
+            }
+
+            case Commands.move_from_bg: {
+                const num = params ? Number(params) : 0;
+                await this.rotateAnimation.setModeRotateTo(Math.PI / 2 * (num + 1), new THREE.Vector3());
+                await this.translateAnimation.moveFront();
+                this.rotateAnimation.setModeDefault();
+                return;
+            }
+
+            case Commands.deactivate:
+                this.domItems.forEach(i => i.remove());
+                this.domItems.length = 0;
+                this.expandAnimation.collapse();
+                this.rotateAnimation.setModeDefault();
+                return;
+
+            case Commands.expand:
+                this.expandAnimation.expand();
+                return;
+
+            case Commands.collapse:
+                this.expandAnimation.collapse();
+                return;
+            case Commands.into_center:
+                await this.translateAnimation.moveAlongVector(this.params.centerOffsets);
+                return;
+            case Commands.from_center:
+                await this.translateAnimation.moveAlongVector(this.params.centerOffsets.clone().multiplyScalar(-1));
+                return;
+        }
+    }
+
+    animate() {
+        this.insideMaterials.forEach(m => {
+            const mm = m as THREE.MeshStandardMaterial;
+            mm.map!.rotation += 0.0005;
+        });
+
+        this.expandAnimation.animate();
+        this.rotateAnimation.animate();
+        this.translateAnimation.animate();
+    }
+
+    private createMenuItems() {
 
         const container = document.getElementById(this.containerId);
-        const box = new THREE.Box3().setFromObject(this.scene);
-        const rect = container!.getBoundingClientRect();
+        // const box = new THREE.Box3().setFromObject(this.scene);
+        // const rect = container!.getBoundingClientRect();
         function createDiv(itemTitle: string, itemText: string , styles: {k: any, v: string}[]) {
             const i = document.createElement('div');
             i.className = "menu-item";
@@ -149,67 +223,21 @@ export class GroupStone extends Group {
         const Text = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
         switch(this.scene.children.length) {
             case 4:
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `50%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `50%`}, {k: 'left', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `75%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `75%`}, {k: 'left', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `25%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `25%`}, {k: 'left', v: `65%`}]));
+                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `65%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `65%`}, {k: 'left', v: `65%`}]));
                 break;
             case 3:
-                this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `15%`}, {k: 'left', v: `50%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `45%`}, {k: 'right', v: `57%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `45%`}, {k: 'left', v: `57%`}]));
-break;
+                this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `15%`}, {k: 'left', v: `55%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'right', v: `57%`}]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'left', v: `65%`}]));
+                break;
             case 2:
                 this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `21%`}, {k: 'left', v: `50%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
                 this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `65%`}, {k: 'left', v: `50%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
-break;
+                break;
         }
-
-        //await this.rotateAnimation.setModeLocalRotateTo(this.params.centerLocalRotationAngles);
-    }
-
-    private toScreenXY (position: THREE.Vector3, clientWidth: number, clientHeight: number) {
-        const pos = position.clone();
-        const projScreenMat = new THREE.Matrix4();
-        projScreenMat.multiplyMatrices( this.camera.projectionMatrix, this.camera.matrixWorldInverse);
-        pos.applyMatrix4(projScreenMat);
-        console.log(pos, clientWidth, clientHeight);
-        return {
-            x: ( pos.x + 1 ) * clientWidth / 2, // jqdiv.width() / 2 + jqdiv.offset().left,
-            y: ( - pos.y + 1) * clientHeight / 2 // jqdiv.height() / 2 + jqdiv.offset().top
-        };
-    }
-
-    async deactivate(): Promise<any> {
-        this.expandAnimation.collapse();
-        this.rotateAnimation.setModeDefault();
-        this.domItems.forEach(i => i.remove());
-        this.domItems.length = 0;
-    }
-
-    async runAction(action: string): Promise<any> {
-        switch (action) {
-            case 'activate': return await this.activate();
-            case 'deactivate': return await this.deactivate();
-            case 'moveBack':
-                //this.scene.children.forEach(i => i.position.z += 10);
-                return;
-            case 'expand':
-                this.expandAnimation.expand();
-                return;
-            case 'collapse':
-                this.expandAnimation.collapse();
-                return;
-        }
-    }
-
-    animate() {
-        this.insideMaterials.forEach(m => {
-            const mm = m as THREE.MeshStandardMaterial;
-            mm.map!.rotation += 0.0005;
-        });
-
-        this.animations.forEach(i => i.animate());
     }
 }
 

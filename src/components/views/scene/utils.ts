@@ -35,8 +35,39 @@ function loadGlb(url: string): Promise<GLTF> {
         });
     });
 }
+
+function toScreenXY (position: THREE.Vector3, clientWidth: number, clientHeight: number, camera: THREE.PerspectiveCamera) {
+    const pos = position.clone();
+    const projScreenMat = new THREE.Matrix4();
+    projScreenMat.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse);
+    pos.applyMatrix4(projScreenMat);
+    return {
+        x: ( pos.x + 1 ) * clientWidth / 2, // jqdiv.width() / 2 + jqdiv.offset().left,
+        y: ( - pos.y + 1) * clientHeight / 2 // jqdiv.height() / 2 + jqdiv.offset().top
+    };
+}
+
+function getVectorAngles(v: THREE.Vector3): THREE.Vector3 {
+    const V1x = new THREE.Vector3(1, 0, 0);
+    const V1y = new THREE.Vector3(0, 1, 0);
+    const V1z = new THREE.Vector3(0, 0, 1);
+
+    const V2xz = new THREE.Vector3(v.x, 0, v.z).normalize();
+    const V2xy = new THREE.Vector3(v.x, v.y, 0).normalize();
+
+    return new THREE.Vector3(
+        //angle in radian between origin X axis and X axis of V2
+        Math.acos(V1x.dot(V2xz)),
+        //angle in radian between origin Y axis and Y axis of V
+        Math.acos(V1y.dot(V2xy)),
+        //angle in radian between origin Z axis and Z axis of V
+        Math.acos(V1z.dot(V2xz))
+    );
+}
+
 export {
     rotate,
+    toScreenXY,
     isInsideMat,
     loadGlb
 }
