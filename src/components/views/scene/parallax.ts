@@ -12,8 +12,7 @@ export function initParallax(id: string): {(): void} {
         const _depth3 = `${(_mouseX - _w) * 0.008}px ${50 - (_mouseY - _h) * 0.008}%`;
         const _depth4 = `${(_mouseX - _w) * 0.012}px ${50 - (_mouseY - _h) * 0.012}%`;
         const x = [_depth4, _depth3, _depth2, _depth1].join(', ');
-        //console.log(x);
-        if (elem) 
+        if (elem)
             elem.style.backgroundPosition = x;
     }
     
