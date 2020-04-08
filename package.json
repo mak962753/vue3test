@@ -3,11 +3,13 @@
   "name": "test1",
   "version": "1.0.0",
   "dependencies": {
+    "@tweenjs/tween.js": "^18.5.0",
     "tailwindcss": "^1.2.0",
     "three": "^0.113.2",
     "vue": "^3.0.0-alpha.9"
   },
   "devDependencies": {
+    "@types/tween.js": "^18.5.0",
     "@vue/compiler-sfc": "^3.0.0-alpha.9",
     "cross-env": "^5.2.0",
     "css-loader": "^3.4.0",

@@ -1,7 +1,7 @@
 import {IAnimation} from "./animation";
 import * as THREE from "three";
 
-const backOffsets = new THREE.Vector3(13, 3, -8);
+const backOffsets = new THREE.Vector3(13, 6, -8);
 const backOffsetsInverse = backOffsets.clone().multiplyScalar(-1);
 
 class AnimationTranslate implements IAnimation {
@@ -48,4 +48,4 @@ class AnimationTranslate implements IAnimation {
     }
 }
 
-export {AnimationTranslate}
+export {AnimationTranslate, backOffsets, backOffsetsInverse}

@@ -1,10 +1,8 @@
 import {IAnimation} from "./animation";
 import * as THREE from "three";
-import {rotate} from "./utils";
+import TWEEN from '@tweenjs/tween.js'
 
 const PI2 = 2 * Math.PI;
-// const PI = Math.PI;
-// const PI_2 = Math.PI / 2;
 
 class AnimationRotate implements IAnimation {
     private modeFn: (() => void) | null = null;

@@ -3,7 +3,7 @@ import * as THREE from "three";
 import {Commands} from "./commands";
 import {AnimationCollapseExpand} from "./animation-collapse-expand";
 import {AnimationRotate} from "./animation-rotate";
-import {AnimationTranslate} from "./animation-translate";
+import {AnimationTranslate, backOffsets, backOffsetsInverse} from "./animation-translate";
 import {isInsideMat} from "./utils";
 
 interface StoneGroupParams {
@@ -126,9 +126,10 @@ export class GroupStone extends Group {
     async runAction(action: string, params?: any): Promise<any> {
         switch (action) {
             case Commands.activate_from_bg:
-                await this.rotateAnimation.setModeRotateTo(Math.PI, this.params.centerLocalRotationAngles);
-                await this.translateAnimation.moveFront();
-                await this.rotateAnimation.setModeRotateTo(this.params.centerGlobalRotationAngle, this.params.centerLocalRotationAngles);
+                await Promise.all([
+                    this.rotateAnimation.setModeRotateTo(this.params.centerGlobalRotationAngle, this.params.centerLocalRotationAngles),
+                    this.translateAnimation.moveAlongVector(this.params.centerOffsets.clone().add(backOffsetsInverse))
+                ]);
                 this.expandAnimation.expand();
                 this.createMenuItems();
                 return;
@@ -223,10 +224,10 @@ export class GroupStone extends Group {
         const Text = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
         switch(this.scene.children.length) {
             case 4:
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `25%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `25%`}, {k: 'left', v: `65%`}]));
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `65%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `65%`}, {k: 'left', v: `65%`}]));
+                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `35%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `35%`}, {k: 'left', v: `63%`}]));
+                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `55%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'left', v: `63%`}]));
                 break;
             case 3:
                 this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `15%`}, {k: 'left', v: `55%`}, {k: 'transform', v: 'translateX(-50%)'} ]));

@@ -5,6 +5,8 @@ import {GroupLogo} from "./group-logo";
 import {GroupStone} from "./group-stone";
 import {isInsideMat, loadGlb} from "./utils";
 import {Commands} from "./commands";
+import TWEEN from '@tweenjs/tween.js'
+
 
 /**
  * rotate around world axis
@@ -123,10 +125,9 @@ class StoneScene implements IScene {
     private animate() {
         if (this.disposed)
             return;
-
+        TWEEN.update();
         this.groups.forEach(i => i.animate());
-        this.renderer.render(this.scene, this.camera);
-
+        this.render();
         requestAnimationFrame(() => this.animate() );
     }
 
@@ -181,16 +182,13 @@ class StoneScene implements IScene {
         let work: Promise<any> = Promise.resolve();
 
         if (this.activeGroup) {
-            const inactiveItems = this.groups.filter(i => i instanceof GroupStone && (i !== this.activeGroup && i !== group));
-
             const jobs: Promise<any>[] = [
                 Promise.all([
                     this.activeGroup.runAction(Commands.from_center),
                     this.activeGroup.runAction(Commands.deactivate)
                 ]),
-                this.activeGroup.runAction(Commands.move_into_bg),
+                this.activeGroup.runAction(Commands.move_into_bg, 0),
                 group.runAction(Commands.activate_from_bg),
-                group.runAction(Commands.into_center)
             ];
             work = Promise.all(jobs);
 
