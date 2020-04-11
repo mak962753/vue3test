@@ -179,54 +179,45 @@ class StoneScene implements IScene {
 
         this.isInteractive = false;
 
-        let work: Promise<any> = Promise.resolve();
 
         if (this.activeGroup) {
-            const jobs: Promise<any>[] = [
-                Promise.all([
-                    this.activeGroup.runAction(Commands.from_center),
-                    this.activeGroup.runAction(Commands.deactivate)
-                ]),
-                this.activeGroup.runAction(Commands.move_into_bg, 0),
-                group.runAction(Commands.activate_from_bg),
-            ];
-            work = Promise.all(jobs);
-
+            await Promise.all([
+                this.activeGroup.runAction(Commands.deactivate, true),
+                group.runAction(Commands.activate_from_bg)
+            ]);
         } else {
             let index = -1;
             const inactiveItems = this.groups.filter(i => i !== group);
-
             const jobs = inactiveItems.map((i, j) => {
                 index = i === group || i instanceof GroupLogo ? index : index + 1;
                 return i.runAction(Commands.move_into_bg, index);
             });
-            jobs.push(group.runAction(Commands.activate_from_fg));
-            jobs.push(group.runAction(Commands.into_center));
-            work = Promise.all(jobs);
+            await Promise.all([
+                ...jobs,
+                group.runAction(Commands.activate_from_fg),
+                group.runAction(Commands.into_center)
+            ]);
         }
 
-        await work.then(() => {
-            this.activeGroup = group;
-            this.isInteractive = true;
+        this.activeGroup = group;
+        this.isInteractive = true;
 
-            this.resetTimeout = window.setTimeout(() => {
-                this.isInteractive = false;
-                if (!this.activeGroup)
-                    return;
-                const inactiveItems = this.groups.filter(i => i !== this.activeGroup);
+        this.resetTimeout = window.setTimeout(() => {
+            this.isInteractive = false;
+            if (!this.activeGroup)
+                return;
 
-                const jobs = [
-                    this.activeGroup.runAction(Commands.from_center),
-                    this.activeGroup.runAction(Commands.deactivate),
-                    ...inactiveItems.map(i => i.runAction(Commands.move_from_bg))
-                ];
+            const inactiveItems = this.groups.filter(i => i !== this.activeGroup);
+            const jobs = [
+                this.activeGroup.runAction(Commands.deactivate, false),
+                ...inactiveItems.map(i => i.runAction(Commands.move_from_bg))
+            ];
+            Promise.all(jobs).then(() => {
+                this.activeGroup = null;
+                this.isInteractive = true;
+            });
+        }, 5000);
 
-                Promise.all(jobs).then(() => {
-                    this.activeGroup = null;
-                    this.isInteractive = true;
-                });
-            }, 5000);
-        });
     }
 }
 

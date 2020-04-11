@@ -54,7 +54,7 @@
             &__icon {
                 width: 93px;
                 height: 100px;
-                background: url('/assets/scene/1.svg') no-repeat;
+                background-repeat: no-repeat;
                 position: absolute;
                 left: -20px;
                 top: 50%;

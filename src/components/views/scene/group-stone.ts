@@ -4,7 +4,7 @@ import {Commands} from "./commands";
 import {AnimationCollapseExpand} from "./animation-collapse-expand";
 import {AnimationRotate} from "./animation-rotate";
 import {AnimationTranslate, backOffsets, backOffsetsInverse} from "./animation-translate";
-import {isInsideMat} from "./utils";
+import {isInsideMat, toScreenXY} from "./utils";
 
 interface StoneGroupParams {
     offsets: THREE.Vector3[];
@@ -128,11 +128,29 @@ export class GroupStone extends Group {
             case Commands.activate_from_bg:
                 await Promise.all([
                     this.rotateAnimation.setModeRotateTo(this.params.centerGlobalRotationAngle, this.params.centerLocalRotationAngles),
-                    this.translateAnimation.moveAlongVector(this.params.centerOffsets.clone().add(backOffsetsInverse))
+                    // move into center
+                    this.translateAnimation.moveAlongVector(this.params.centerOffsets.clone().add(backOffsetsInverse), {duration: 800})
                 ]);
                 this.expandAnimation.expand();
                 this.createMenuItems();
-                return;
+                break;
+
+            case Commands.deactivate:
+                // accepts param (bool) - whether to send it to background
+                // this group is active in the moment -- need to deactivate it
+                // delete menu items
+                this.domItems.forEach(i => i.remove());
+                this.domItems.length = 0;
+                this.expandAnimation.collapse();
+
+                let offsets = this.params.centerOffsets.clone().multiplyScalar(-1);
+                offsets = params ? offsets.add(backOffsets) : offsets;
+
+                await this.translateAnimation.moveAlongVector(offsets, {duration: 800});
+
+                this.rotateAnimation.setModeDefault();
+
+                break;
 
             case Commands.activate_from_fg:
                 this.expandAnimation.expand();
@@ -140,17 +158,16 @@ export class GroupStone extends Group {
                     this.params.centerGlobalRotationAngle,
                     this.params.centerLocalRotationAngles);
                 this.createMenuItems();
-                return;
+                break;
 
             case Commands.move_into_bg: {
                 const num = params ? Number(params) : 0;
                 const angle = Math.PI / 4  + (num * Math.PI / 2);
-                console.log(num, angle);
                 await this.rotateAnimation.setModeRotateTo(angle, new THREE.Vector3());
                 await this.translateAnimation.moveBack();
                 this.rotateAnimation.setModeDefault();
 
-                return;
+                break;
             }
 
             case Commands.move_from_bg: {
@@ -158,29 +175,26 @@ export class GroupStone extends Group {
                 await this.rotateAnimation.setModeRotateTo(Math.PI / 2 * (num + 1), new THREE.Vector3());
                 await this.translateAnimation.moveFront();
                 this.rotateAnimation.setModeDefault();
-                return;
+                break;
             }
 
-            case Commands.deactivate:
-                this.domItems.forEach(i => i.remove());
-                this.domItems.length = 0;
-                this.expandAnimation.collapse();
-                this.rotateAnimation.setModeDefault();
-                return;
+
 
             case Commands.expand:
                 this.expandAnimation.expand();
-                return;
+                break;
 
             case Commands.collapse:
                 this.expandAnimation.collapse();
-                return;
+                break;
             case Commands.into_center:
-                await this.translateAnimation.moveAlongVector(this.params.centerOffsets);
-                return;
-            case Commands.from_center:
-                await this.translateAnimation.moveAlongVector(this.params.centerOffsets.clone().multiplyScalar(-1));
-                return;
+                await this.translateAnimation.moveAlongVector(this.params.centerOffsets, {duration: 200});
+                break;
+            case Commands.from_center:{
+                const offsets = this.params.centerOffsets.clone().multiplyScalar(-1);
+                await this.translateAnimation.moveAlongVector(offsets, {duration: 200});
+                break;
+            }
         }
     }
 
@@ -198,16 +212,18 @@ export class GroupStone extends Group {
     private createMenuItems() {
 
         const container = document.getElementById(this.containerId);
-        // const box = new THREE.Box3().setFromObject(this.scene);
-        // const rect = container!.getBoundingClientRect();
-        function createDiv(itemTitle: string, itemText: string , styles: {k: any, v: string}[]) {
+
+
+        function createDiv(itemTitle: string, itemText: string, iconUrl: string, styles: {k: any, v: string}[]) {
             const i = document.createElement('div');
+
             i.className = "menu-item";
             styles.forEach(({k,v}) => {
-                i.style[k] = v;
+                    i.style[k] = v;
             });
             const icon = document.createElement('div');
             icon.className = "menu-item__icon";
+            icon.style.backgroundImage = `url(${iconUrl})`;
             const text = document.createElement('div');
             const title = document.createElement('h1');
             text.className = "menu-item__text";
@@ -219,24 +235,37 @@ export class GroupStone extends Group {
             container!.appendChild(i);
             return i;
         }
-        // const pos1 = this.toScreenXY(box.min, rect.width, rect.height);
-        // const pos2 = this.toScreenXY(box.max, rect.width, rect.height);
+        // const box = new THREE.Box3().setFromObject(this.scene);
+        // const rect = container!.getBoundingClientRect();
+        // const pos1 = toScreenXY(box.min, rect.width, rect.height, this.camera);
+        // const pos2 = toScreenXY(box.max, rect.width, rect.height, this.camera);
+        // this.domItems.push(createDiv('', Text, [
+        //     {k: 'top', v: `${pos1.y}px`},
+        //     {k: 'left', v: `${pos1.x}px`},
+        //     {k: 'bottom', v: `${rect.height - pos2.y}px`},
+        //     {k: 'right', v: `${rect.width - pos2.x}px`},
+        //     {k: 'background', v: `#fff7`},
+        // ]));
         const Text = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
+        const icon1 = '/assets/scene/1.png';
+        const icon2 = '/assets/scene/2.png';
+        const icon3 = '/assets/scene/3.png';
+        const icon4 = '/assets/scene/4.png';
         switch(this.scene.children.length) {
             case 4:
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `35%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `35%`}, {k: 'left', v: `63%`}]));
-                this.domItems.push(createDiv('Football', Text, [{k: 'top', v: `55%`}, {k: 'right', v: `60%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'left', v: `63%`}]));
+                this.domItems.push(createDiv('Football', Text, icon1, [{k: 'class', v: `menu-item--bg1`}, {k: 'top', v: `35%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text, icon2,[{k: 'top', v: `35%`}, {k: 'left', v: `63%`}]));
+                this.domItems.push(createDiv('Football', Text, icon3, [{k: 'top', v: `55%`}, {k: 'right', v: `60%`}]));
+                this.domItems.push(createDiv('Football', Text, icon4,[{k: 'top', v: `55%`}, {k: 'left', v: `63%`}]));
                 break;
             case 3:
-                this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `15%`}, {k: 'left', v: `55%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'right', v: `57%`}]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top', v: `55%`}, {k: 'left', v: `65%`}]));
+                this.domItems.push(createDiv('Football', Text, icon1,[{k: 'top',  v: `30%`}, {k: 'left', v: `45%`}, {k: 'transform', v: 'translateX(-100%)'}  ]));
+                this.domItems.push(createDiv('Football', Text, icon2,[{k: 'top', v: `55%`}, {k: 'left', v: `45%`}, {k: 'transform', v: 'translateX(-100%)'}]));
+                this.domItems.push(createDiv('Football', Text, icon3,[{k: 'top', v: `55%`}, {k: 'left', v: `55%`}, {k: 'transform', v: 'translateX(50%)'}]));
                 break;
             case 2:
-                this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `21%`}, {k: 'left', v: `50%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
-                this.domItems.push(createDiv('Football', Text,[{k: 'top',  v: `65%`}, {k: 'left', v: `50%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
+                this.domItems.push(createDiv('Football', Text, icon1,[{k: 'top',  v: `30%`}, {k: 'left', v: `40%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
+                this.domItems.push(createDiv('Football', Text, icon2,[{k: 'top',  v: `50%`}, {k: 'left', v: `67%`}, {k: 'transform', v: 'translateX(-50%)'} ]));
                 break;
         }
     }

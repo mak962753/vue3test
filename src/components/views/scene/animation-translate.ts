@@ -1,50 +1,33 @@
 import {IAnimation} from "./animation";
 import * as THREE from "three";
+import TWEEN from '@tweenjs/tween.js';
 
 const backOffsets = new THREE.Vector3(13, 6, -8);
 const backOffsetsInverse = backOffsets.clone().multiplyScalar(-1);
 
 class AnimationTranslate implements IAnimation {
-    private modeFn: (() => void)|null = null;
 
-    constructor(private target: THREE.Object3D) {
-    }
+    constructor(private target: THREE.Object3D) { }
 
-    public moveAlongVector(offs: THREE.Vector3): Promise<any> {
-        let counter = 20;
-        const
-            speedX = offs.x / counter,
-            speedY = offs.y / counter,
-            speedZ = offs.z / counter;
-
+    public moveAlongVector(offs: THREE.Vector3, params: {duration: number}): Promise<any> {
+        const {x,y,z} = this.target.position.clone().add(offs);
+        const tween = new TWEEN.Tween(this.target.position)
+            .to({x,y,z}, params.duration)
+            .easing(TWEEN.Easing.Sinusoidal.Out);
         return new Promise((y/*, n*/) => {
-            this.modeFn = () => {
-                if (counter <= 0) {
-                    this.modeFn = null;
-                    y();
-                    return;
-                }
-
-                this.target.position.x += speedX;
-                this.target.position.y += speedY;
-                this.target.position.z += speedZ;
-
-                counter--;
-            };
+            tween.onComplete(y).onStop(y).start();
         });
     }
 
     public moveFront(): Promise<any> {
-        return this.moveAlongVector(backOffsetsInverse);
+        return this.moveAlongVector(backOffsetsInverse, {duration: 700});
     }
 
     public moveBack(): Promise<any> {
-        return this.moveAlongVector(backOffsets);
+        return this.moveAlongVector(backOffsets, {duration: 700});
     }
 
     animate(): void {
-        if (this.modeFn)
-            this.modeFn();
     }
 }
 
