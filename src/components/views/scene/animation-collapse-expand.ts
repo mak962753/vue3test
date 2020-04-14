@@ -10,8 +10,10 @@ class AnimationCollapseExpand implements IAnimation
     private tween: TWEEN.Tween|null = null;
     private state: string = '';
 
-    constructor(private parts: THREE.Object3D[], private offsets: THREE.Vector3[]) {
-
+    constructor(private parts: THREE.Object3D[],
+                private offsets: THREE.Vector3[],
+                private duration: number,
+                private onDone: ((()=>void))|null) {
     }
 
     private disposeTween() {
@@ -24,29 +26,29 @@ class AnimationCollapseExpand implements IAnimation
         this.cnt1 = this.cnt;
 
         const diff = to === 0 ? this.cnt : (Limit - this.cnt1);
-        const duration = 300 * diff / Limit;
+        const duration = this.duration * diff / Limit;
 
         this.tween = new TWEEN.Tween({x: this.cnt})
             .to({x: to}, duration)
-            .onUpdate(({x}) => this.cnt1 = x)
+            .onUpdate(({x}) => {this.cnt1 = x; this.onUpdate(x);})
             .onStop(() => this.disposeTween())
-            .onComplete(() => this.disposeTween())
+            .onComplete(() => { this.disposeTween(); this.onDone && this.onDone();})
             .start();
     }
 
     public expand() {
-        if (!this.tween && this.cnt >= Limit)
+        if (this.cnt >= Limit)
             return;
-        if (this.tween && this.state === 'expand')
+        if (this.state === 'expand')
             return;
         this.state = 'expand';
         this.createTween(Limit);
     }
 
     public collapse() {
-        if (!this.tween && this.cnt <= 0)
+        if (this.cnt <= 0)
             return;
-        if (this.tween && this.state === 'collapse')
+        if (this.state === 'collapse')
             return;
         this.state = 'collapse';
         this.createTween(0);
@@ -62,26 +64,8 @@ class AnimationCollapseExpand implements IAnimation
         });
     }
 
-    animate(): void {
-        this.onUpdate(this.cnt1);
-        // let move = false;
-        //
-        // if ( this.dir > 0 && this.cnt < this.lim) {
-        //     this.cnt++;
-        //     move = true;
-        // }
-        //
-        // if (this.dir < 0 && this.cnt > 0) {
-        //     move = true;
-        //     this.cnt--;
-        // }
-        //
-        // if (move) {
-        //     this.parts.forEach((g, i) => {
-        //         g.translateOnAxis(this.offsets[i], this.dir * 0.1);
-        //     });
-        // }
-    }
+    animate(): void {}
+
 }
 
 export {AnimationCollapseExpand}

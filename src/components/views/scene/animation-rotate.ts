@@ -11,6 +11,7 @@ class AnimationRotate implements IAnimation {
     constructor(private angle: number,
                 private rotationSpeed: number,
                 private rotationAxis: THREE.Vector3,
+                private duration: number,
                 private scene: THREE.Object3D) {
 
         this.currentAngle = this.angle;
@@ -28,7 +29,7 @@ class AnimationRotate implements IAnimation {
 
         this.defaultRotationTween && this.defaultRotationTween.stop();
         this.defaultRotationTween = new TWEEN.Tween(this)
-            .to({currentAngle: `+${Math.PI}`}, this.rotationSpeed * 2000000)
+            .to({currentAngle: `+${Math.PI}`}, this.rotationSpeed * 2500000)
             .repeat(Infinity)
             .start();
     }
@@ -43,7 +44,7 @@ class AnimationRotate implements IAnimation {
         this.rotationTween = new TWEEN.Tween(this).to({
             localAngle: this.localAngle + yOffs,
             currentAngle: this.currentAngle + offs
-        }, 300);
+        }, this.duration);
 
 
         return new Promise(y => {

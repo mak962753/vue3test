@@ -7,7 +7,8 @@ const backOffsetsInverse = backOffsets.clone().multiplyScalar(-1);
 
 class AnimationTranslate implements IAnimation {
 
-    constructor(private target: THREE.Object3D) { }
+    constructor(private target: THREE.Object3D,
+                private moveToBgDuration: number) { }
 
     public moveAlongVector(offs: THREE.Vector3, params: {duration: number}): Promise<any> {
         const {x,y,z} = this.target.position.clone().add(offs);
@@ -20,11 +21,11 @@ class AnimationTranslate implements IAnimation {
     }
 
     public moveFront(): Promise<any> {
-        return this.moveAlongVector(backOffsetsInverse, {duration: 700});
+        return this.moveAlongVector(backOffsetsInverse, {duration: this.moveToBgDuration});
     }
 
     public moveBack(): Promise<any> {
-        return this.moveAlongVector(backOffsets, {duration: 700});
+        return this.moveAlongVector(backOffsets, {duration: this.moveToBgDuration});
     }
 
     animate(): void {

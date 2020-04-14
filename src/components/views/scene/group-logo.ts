@@ -3,29 +3,34 @@ import {Commands} from "./commands";
 import * as THREE from "three";
 import {AnimationTranslate} from "./animation-translate";
 import {AnimationRotate} from "./animation-rotate";
+import {LogoConfig} from "./config";
 
 export class GroupLogo extends Group {
     private readonly translateAnimation: AnimationTranslate;
     private readonly rotateAnimation: AnimationRotate;
 
-    constructor(private scene: THREE.Object3D) {
+    constructor(private scene: THREE.Object3D, private logoConfig: LogoConfig) {
         super();
-        this.scene.rotation.x += 0.5;
-        this.translateAnimation = new AnimationTranslate(this.scene);
+        this.scene.rotation.x += logoConfig.initialRotation.x;
+        this.scene.rotation.y += logoConfig.initialRotation.y;
+        this.scene.rotation.z += logoConfig.initialRotation.z;
+
+        this.translateAnimation = new AnimationTranslate(this.scene, logoConfig.durationMoveToBg);
         const fakePivot = new THREE.Object3D();
         const fake = new THREE.Object3D();
         fakePivot.add(fake);
-        this.rotateAnimation = new AnimationRotate(0, 0, new THREE.Vector3(), fake);
+        this.rotateAnimation = new AnimationRotate(0, 0, new THREE.Vector3(), logoConfig.durationRotation, fake);
     }
 
     animate(): void {
-        this.scene.rotation.y += 0.003;
-        this.translateAnimation.animate();
-        this.rotateAnimation.animate();
+        let {x,y,z} = this.logoConfig.rotationSpeed;
+        this.scene.rotation.x += x;
+        this.scene.rotation.y += y;
+        this.scene.rotation.z += z;
     }
 
-    getIntersected(rayCaster: THREE.Raycaster): THREE.Object3D | null {
-        return null;
+    isIntersected(rayCaster: THREE.Raycaster): boolean {
+        return false;
     }
 
     async runAction(action: string): Promise<any> {

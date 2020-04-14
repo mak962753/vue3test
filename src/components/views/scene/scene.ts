@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {Group} from './group'
-import {GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
+import {readConfig, Config} from './config'
+import {GLTF} from 'three/examples/jsm/loaders/GLTFLoader';
 import {GroupLogo} from "./group-logo";
 import {GroupStone} from "./group-stone";
 import {isInsideMat, loadGlb} from "./utils";
@@ -26,6 +27,8 @@ class StoneScene implements IScene {
     private isInteractive: boolean = true;
     private activeGroup: Group | null = null;
     private resetTimeout: number = -1;
+    private autoCollapseTimeout: number = -1;
+    private config: Config|null = null;
 
     constructor(
         private containerId: string
@@ -37,10 +40,11 @@ class StoneScene implements IScene {
         this.initLighting();
     }
     init() {
-        return loadModels().then(([models, logo]) => {
-            const groups = initStones(models, this.scene, this.containerId, this.camera);
-            const logoGroup = initLogo(logo, this.scene);
+        return loadModels().then(([models, logo, config]) => {
+            const groups = initStones(models, this.scene, this.containerId, config);
+            const logoGroup = initLogo(logo, this.scene, config);
             this.groups.push(...groups, logoGroup);
+            this.config = config;
         }).then(() => {
             const onHover = (e: MouseEvent) => this.onHover(e);
             this.renderer.domElement.addEventListener('mousemove', onHover, true);
@@ -131,14 +135,9 @@ class StoneScene implements IScene {
         requestAnimationFrame(() => this.animate() );
     }
 
-    private findIntersection(rayCaster: THREE.Raycaster): [Group, THREE.Object3D] | null {
-        for (let i = 0; i < this.groups.length; i++) {
-            const x = this.groups[i].getIntersected(rayCaster);
-            if (x) {
-                return [this.groups[i], x];
-            }
-        }
-        return null;
+    private findIntersection(rayCaster: THREE.Raycaster): Group | null {
+        const x = this.groups.filter(i => i.isIntersected(rayCaster));
+        return x[0] || null;
     }
 
     private groupFromMouseEvent(event: MouseEvent): Group | null {
@@ -148,8 +147,7 @@ class StoneScene implements IScene {
         mouse.x = ( event.clientX / clientWidth ) * 2 - 1;
         mouse.y = - ( event.clientY /clientHeight ) * 2 + 1;
         caster.setFromCamera(mouse, this.camera);
-        const [group,] = this.findIntersection(caster) || [];
-        return group ? group : null;
+        return this.findIntersection(caster);
     }
 
     private onHover(event: MouseEvent) {
@@ -157,8 +155,16 @@ class StoneScene implements IScene {
             return;
 
         const group = this.groupFromMouseEvent(event);
-        if (!group || group === this.activeGroup)
+        if (!group || group === this.activeGroup) {
             return;
+        }
+        clearTimeout(this.autoCollapseTimeout);
+
+        this.autoCollapseTimeout = window.setTimeout(() => {
+            this.groups
+                .filter(i => i !== this.activeGroup)
+                .forEach(i => i.runAction('collapse'));
+        }, 1000);
 
         this.groups
             .filter(i => i !== this.activeGroup)
@@ -174,61 +180,68 @@ class StoneScene implements IScene {
 
         const group = this.groupFromMouseEvent(event);
 
-        if (!group || group === this.activeGroup)
+        if (!group) {
+            this.resetScene();
+            return;
+        }
+
+        if (group === this.activeGroup)
             return;
 
         this.isInteractive = false;
 
-
+        let work: Promise<any>;
         if (this.activeGroup) {
-            await Promise.all([
+            work = Promise.all([
                 this.activeGroup.runAction(Commands.deactivate, true),
                 group.runAction(Commands.activate_from_bg)
             ]);
         } else {
             let index = -1;
             const inactiveItems = this.groups.filter(i => i !== group);
-            const jobs = inactiveItems.map((i, j) => {
+            const jobs = inactiveItems.map(i => {
                 index = i === group || i instanceof GroupLogo ? index : index + 1;
                 return i.runAction(Commands.move_into_bg, index);
             });
-            await Promise.all([
+            work = Promise.all([
                 ...jobs,
                 group.runAction(Commands.activate_from_fg),
                 group.runAction(Commands.into_center)
             ]);
         }
-
         this.activeGroup = group;
+        await work;
         this.isInteractive = true;
 
-        this.resetTimeout = window.setTimeout(() => {
-            this.isInteractive = false;
-            if (!this.activeGroup)
-                return;
+        this.resetTimeout = window.setTimeout(() => this.resetScene(), 30000);
 
-            const inactiveItems = this.groups.filter(i => i !== this.activeGroup);
-            const jobs = [
-                this.activeGroup.runAction(Commands.deactivate, false),
-                ...inactiveItems.map(i => i.runAction(Commands.move_from_bg))
-            ];
-            Promise.all(jobs).then(() => {
-                this.activeGroup = null;
-                this.isInteractive = true;
-            });
-        }, 5000);
+    }
 
+    private resetScene() {
+        if (!this.activeGroup)
+            return;
+        this.isInteractive = false;
+        const inactiveItems = this.groups.filter(i => i !== this.activeGroup);
+        const jobs = [
+            this.activeGroup.runAction(Commands.deactivate, false),
+            ...inactiveItems.map(i => i.runAction(Commands.move_from_bg))
+        ];
+        Promise.all(jobs).then(() => {
+            this.activeGroup = null;
+            this.isInteractive = true;
+        });
     }
 }
 
-function loadModels(): Promise<[GLTF[], GLTF]> {
+function loadModels(): Promise<[[GLTF, GLTF, GLTF], GLTF, Config]> {
     return Promise.all([
         Promise.all([
             loadGlb('assets/scene/Stone1.glb'),
             loadGlb('assets/scene/Stone2.glb'),
             loadGlb('assets/scene/Stone3.glb')
         ]),
-        loadGlb('assets/scene/LOGO.glb')
+        loadGlb('assets/scene/LOGO.glb'),
+        readConfig()
     ]);
 }
 
@@ -238,15 +251,16 @@ function initCamera(): THREE.PerspectiveCamera  {
     return camera;
 }
 
-function initLogo(model: GLTF, scene: THREE.Scene): Group {
+
+function initLogo(model: GLTF, scene: THREE.Scene, config: Config): Group {
     const pivot = new THREE.Object3D();
     pivot.add(model.scene);
     scene.add(pivot);
     model.scene.position.set(0, 1, 0);
-    return new GroupLogo(model.scene);
+    return new GroupLogo(model.scene, config.logoConfig);
 }
 
-function initStones(models: GLTF[], scene: THREE.Scene, containerId: string, cam: THREE.PerspectiveCamera): Group[] {
+function initStones(models: GLTF[], scene: THREE.Scene, containerId: string, config: Config): Group[] {
     const angle = 2 * Math.PI / models.length;
 
     return models.map((model, index) => {
@@ -265,7 +279,8 @@ function initStones(models: GLTF[], scene: THREE.Scene, containerId: string, cam
         pivot.rotation.set(0,0,0);
         pivot.add(s0);
         scene.add( pivot );
-        return (new GroupStone(s0, startingAngle, containerId, cam)) as Group;
+        const groupConfig = config.getStoneGroupConfig(s0.children.length);
+        return (new GroupStone(s0, startingAngle, containerId, groupConfig)) as Group;
     });
 }
 
