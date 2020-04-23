@@ -1,10 +1,9 @@
-import {createApp } from 'vue' 
-
+import {createApp} from 'vue'; 
 import App from './app.vue';
 import Router from './router';
-import routes from './routes'
+import routes from './routes';
 import * as views from './components/views';
-import * as common from './components/common';
+import * as common from './components/common/index';
 import {addComponents} from "./shared/app-utils";
 
 const app = createApp(App);

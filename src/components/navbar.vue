@@ -7,6 +7,7 @@
             <router-link class="lnk" to="/">home</router-link>
             <router-link class="lnk" to="/scene">scene</router-link>
             <router-link class="lnk" to="/about">about</router-link>
+            <router-link class="lnk" to="/canv">canv</router-link>
         </div>
     </header>
 </template>

@@ -3,7 +3,7 @@
 </template>
 
 <script lang="ts">
-    import {reactive, computed, defineComponent, onMounted} from 'vue';
+    import {reactive, computed, defineComponent, onMounted} from "vue";
     import {useRoutes, getPath} from '../index';
 
     
