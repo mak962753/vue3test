@@ -1,6 +1,9 @@
 <template>
     
     <div id="view">
+        <div class="cursor cursor--outer"></div>
+        <div class="cursor cursor--inner"></div>
+        
     </div> 
 </template>
 
@@ -34,6 +37,7 @@
 
 <style lang="scss">
     [id=view] {
+        cursor: none;
         position: relative;
         width: 100%;
         background-image: url('/assets/scene/Layer-4.png'), url('/assets/scene/Layer-3.png'), url('/assets/scene/Layer-2.png'), url('/assets/scene/Layer-1.png');
@@ -66,6 +70,29 @@
                 font-weight: bold;
                 color: rgb(189,124,144);
             }
+        }
+        $cursor-color: #fff;
+        .cursor {
+            position: fixed;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+            border-radius: 50%; 
+        }
+        .cursor--outer {
+            width: 30px;
+            height: 30px;
+            border: 1px solid $cursor-color;
+            z-index: 12000;
+            opacity: 0.2; 
+        }
+        .cursor--inner {
+            width: 5px;
+            height: 5px;
+            left: -2.5px;
+            top: -2.5px;
+            z-index: 11000;
+            background: $cursor-color; 
         }
     }
 </style>

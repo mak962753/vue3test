@@ -7,7 +7,7 @@ import {GroupStone} from "./group-stone";
 import {isInsideMat, loadGlb} from "./utils";
 import {Commands} from "./commands";
 import TWEEN from '@tweenjs/tween.js'
-
+import {cursorUpdate, cursorInit, cursorMove} from './cursor';
 
 /**
  * rotate around world axis
@@ -45,11 +45,16 @@ class StoneScene implements IScene {
             const logoGroup = initLogo(logo, this.scene, config);
             this.groups.push(...groups, logoGroup);
             this.config = config;
+            cursorInit();
         }).then(() => {
-            const onHover = (e: MouseEvent) => this.onHover(e);
-            this.renderer.domElement.addEventListener('mousemove', onHover, true);
-            this.disposeFns.push(() => this.renderer.domElement.removeEventListener('mousemove', onHover) );
-
+            const onMouseMove = (e: MouseEvent) => {
+                this.onHover(e);
+            };
+            document.addEventListener('mousemove', cursorMove)
+            this.renderer.domElement.addEventListener('mousemove', onMouseMove, true);
+            this.disposeFns.push(() => this.renderer.domElement.removeEventListener('mousemove', onMouseMove) );
+            this.disposeFns.push(() => document.removeEventListener('mousemove', cursorMove));
+            
             const onInteract = (e: MouseEvent) => this.onActivate(e);
             this.renderer.domElement.addEventListener('click', onInteract, true);
             this.disposeFns.push(() => this.renderer.domElement.removeEventListener('click', onInteract));
@@ -132,6 +137,7 @@ class StoneScene implements IScene {
         TWEEN.update();
         this.groups.forEach(i => i.animate());
         this.render();
+        cursorUpdate();
         requestAnimationFrame(() => this.animate() );
     }
 
@@ -287,6 +293,7 @@ function initStones(models: GLTF[], scene: THREE.Scene, containerId: string, con
 function init(containerId: string): IScene {
     return new StoneScene(containerId);
 }
+
 
 export {
     IScene,

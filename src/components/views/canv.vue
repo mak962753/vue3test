@@ -11,7 +11,8 @@
     import {defineComponent, onMounted, onUnmounted} from 'vue';
     import * as T from 'three';
     import {findCircleCenter, ortho} from './canv/utils';
-
+    import {noise1, noise2} from '../../shared/noise1';
+    import {map, fade, fadeCos} from '../../shared/noise-utils';
     class Comet {
         private center: T.Vector2;
         private velocity: T.Vector2;
@@ -35,6 +36,7 @@
         }
 
         draw(ctx: CanvasRenderingContext2D) {
+            ctx.save();
             const {position: p, velocity: v} = this;
             ctx.shadowColor = 'hsl(300,60%,35%)';
             ctx.shadowBlur = 8;
@@ -55,7 +57,7 @@
             const p2 = new T.Vector2().subVectors(p1, v_.clone().multiplyScalar(4));
             ctx.arc(p2.x, p2.y,2,0, Math.PI * 2);
             ctx.fill();
-
+            ctx.restore();
         }
 
         private getAcceleration(): T.Vector2 {
@@ -66,6 +68,76 @@
         }
     }
     
+    let i = 0;
+    
+    class Bg {
+        n: number[] = [];
+        
+        constructor(w:number, h: number) {
+            const f = 0.05;
+            for (let y = 0; y < h; y++)
+                for (let x = 0; x < w; x++)
+                    this.n[y * h + x] = noise2(x * f, y * f);            
+        }
+
+        draw (ctx: CanvasRenderingContext2D) {
+            const data = ctx.getImageData(0,0, 100, 100);
+            for (let y = 0; y < 100; y++)
+                for (let x = 0; x < 100; x++) {
+                    const c = 255 * this.n[y * ctx.canvas.height + x];
+                    let pos = (y * 100 + x) * 4;
+                    data.data[pos++] = c;
+                    data.data[pos++] = c;
+                    data.data[pos++] = c;
+                    data.data[pos++] = 255;
+                }
+            ctx.putImageData(data, 0,0, 0, 0, 100, 100);    
+        }
+    }
+    
+    class Circler {
+        x: number;
+        y: number;
+        tx :number = Math.random() * 200;
+        ty :number = Math.random() * 200;
+        n: number[] = []; 
+        constructor(w:number, h: number) {
+            this.x = Math.round(Math.random() * w);
+            this.y = h/2;
+        }
+        
+        update(ctx: CanvasRenderingContext2D) {
+            this.x = map(noise1(this.tx * 1.1, fade), 0,1, 0, ctx.canvas.width);
+            this.y = map(noise1(this.ty, fadeCos), 0,1, 0, ctx.canvas.height);
+            this.tx+= 0.005;
+            this.ty+= 0.005;
+        }
+        
+        draw (ctx: CanvasRenderingContext2D) {
+            // ctx.fillStyle = "hsl(300, 50%, 30%)";
+            // ctx.arc(this.x, this.y,2,0, Math.PI * 2);
+            // ctx.fill();
+
+            function line(o:number, f:number, a:number, c:string) {
+                ctx.save()
+                ctx.strokeStyle = c;
+                ctx.lineWidth = 1;
+                const h = ctx.canvas.height/2;
+                const fnY = (t: number, a: number = 1, f: number = 1) => h + map(noise1(t * f) , 0, 1, -h, h)* a;
+                ctx.beginPath();
+                ctx.moveTo(0, fnY(0, a, f));
+                for (let i = 1; i < ctx.canvas.width; i++) {
+                    ctx.lineTo(i, fnY(i+o, a, f));
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+            
+            //line(i++, 0.5, 0.1, "#fff");
+            line(0, 0.5, 0.5, "#fff");
+            line(0, 0.5, 0.3, "#ff0");
+        }
+    }
     export default defineComponent({
         name: 'scene',
         setup() {
@@ -78,9 +150,10 @@
                 const start = new T.Vector2().fromArray([0, h*0.96]);
                 const end  = new T.Vector2().fromArray([w*.8, 0]);
                 const r = 2.1 * (w + h) / 2; // approx radius of an orbit for a comet
-
+                const cicler = new Circler(w, h);
+                const bg = new Bg(w, h);
                 const comet = new Comet(start, end, r);
-
+                
                 let i = 0;
                 function clear(ctx: CanvasRenderingContext2D) {
                     ctx.save();
@@ -106,8 +179,11 @@
 
 
                 function frame() {
+                    bg.draw(ctx!);
+                    cicler.update(ctx!);
                     comet.draw(ctx!);
                     comet.update();
+                    cicler.draw(ctx!);
                     clear(ctx!);
                 }
 
